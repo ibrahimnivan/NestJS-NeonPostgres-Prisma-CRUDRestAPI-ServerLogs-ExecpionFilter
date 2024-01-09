@@ -65,11 +65,7 @@
  }
 ```
 
----------------------------------03Providers----------------------------------------------
-
-8. CREATE LOGIC FOR HANDLING EACH ROUTES INSIDE THE PROVIDER
-
-9. DECORATORS is '@someFunction' that run automatically when called 
+99. DECORATORS is '@someFunction' that run automatically when called 
 example : `@Controller('users')`
 
 
@@ -86,6 +82,67 @@ findAllInterns() {
   return [] // return = {  "id": "interns" } (interns should be above :id)
 }
 ```
+
+---------------------------------03Providers----------------------------------------------
+8. CREATE LOGIC FOR HANDLING EACH ROUTES(from controller) INSIDE THE PROVIDER
+-- providers doesn't have to be a service but it often is (it also can be a repositories, factories, helpers, and so on);
+-- the main idea of provider : it can be injected as dependecy, this means object can create various relationship with each other
+
+8. 1. CREATE METHOD TO HANDLE ROUTE
+```js
+
+```
+
+8. 2. IMPORT TO users.controller.ts
+```js
+import { UsersService } from './users.service';
+```
+
+8. 3. WE NEED TO INJECT IT INTO THE CONTROLL
+-- dependency injection : In Nest, thanks to TypeScript capabilities, it's extremely easy to manage dependencies because they are resolved just by type. In the example below, Nest will resolve the `usersService` by creating and returning an instance of `UsersService` (or, in the normal case of a singleton, returning the existing instance if it has already been requested elsewhere).
+```js
+constructor(private readonly userService: UsersService) {} //dependency injection resolved just by type (ts feature)
+
+// without nestjs it would be
+const usersService = new UsersService
+```
+
+8. 4. REPLACE RETURN USING METHOD FROM UsersService in `users.controler.ts`
+
+@Get() // GET /users or /users?role=value&age=value
+  findAll(@Query('role') role?: 'INTERN' | 'ENGINEER' | 'ADMIN') {
+    // using optional porps '?'
+    `return this.userService.findAll(role);`
+  }
+
+  @Get(':id') //  GET /users/:id
+  findOne(@Param('id') id: string) { // every params is string
+    `return this.userService.findOne(+id)` // + is unary to convert something to number
+  }
+
+  @Post()
+  create(@Body() user: {name: string, email: string, role: 'INTERN' | 'ENGINEER' | 'ADMIN' }) {
+    `return this.userService.create(user);`
+  }
+
+  @Patch(':id') //  PATCH /users/:id
+  update(@Param('id') id: string, @Body() userUpdate: {name?: string, email?: string, role?: 'INTERN' | 'ENGINEER' | 'ADMIN' }) {
+    `return this.userService.update(+id, userUpdate);`
+  }
+
+  @Delete(':id') //  DELETE /users/:id
+  delete(@Param('id') id: string) {
+    `return this.userService.delete(+id)`
+  }
+
+  8. 5. TEST ALL HTTP METHOD USING THUNDERCLIENTS
+  -- Result: successfully tested
+
+  ------------------------------ 04-DTO, Validation & Pipes -----------------------------
+
+
+
+
 
 
 
