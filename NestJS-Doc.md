@@ -30,8 +30,63 @@
 -- result : 2 more files users.service.ts and users.service.spec.ts(for test)
 -- import in users.module.ts automatically filled (`import { <provider_name>Service }`)
 
-7. CREATE ROUTING LOGIC IN OUR CONTROLLER
+-----------------------------------------02Controllers--------------------------------
+
+7. CREATE ROUTING LOGIC IN OUR CONTROLLER (users.contorller.ts)
+-- Controllers are responsible for handling incoming request and returning rosponses to the client
+-- purposes : receive specific request for the app
+-- each controller can have more than one routem and different route can preform differenct action
+-- users controller = http://localhost:port/users
+```js
+//// INSIDE users.controller.ts
+ @Get() // GET /users or /users?role=value&age=value
+ findAll(@Query('role') role?: 'INTERN' | 'ENGINEER' | 'ADMIN') { // using optional porps '?'
+  return []
+ }
+
+ @Get(':id') //  GET /users/:id
+ findOne(@Param('id') id: string) {
+  return { id }
+ }
+
+ @Post()
+ create(@Body() user: {}) {
+  return user
+ }
+
+ @Patch(':id') //  PATCH /users/:id
+ update(@Param('id') id: string, @Body() userUpdate: {}) {
+  return { id, ...userUpdate }
+ }
+
+ @Delete(':id') //  DELETE /users/:id
+ delete(@Param('id') id: string) {
+  return { id }
+ }
+```
+
+---------------------------------03Providers----------------------------------------------
 
 8. CREATE LOGIC FOR HANDLING EACH ROUTES INSIDE THE PROVIDER
+
+9. DECORATORS is '@someFunction' that run automatically when called 
+example : `@Controller('users')`
+
+
+99. PARAM CANNOT BE IN ABOVE SUBROUTE
+Example : WRONG ORDER
+```js
+ @Get(':id') //  GET /users/:id
+ findOne(@Param('id') id: string) {
+  return { id } // the return = {  "id": "1"  }
+ }
+
+ @Get('interns') // GET /users/interns
+findAllInterns() {
+  return [] // return = {  "id": "interns" } (interns should be above :id)
+}
+```
+
+
 
 
