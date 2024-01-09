@@ -1,4 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { NotFoundException } from '@nestjs/common';
 
 @Injectable()
 export class UsersService {
@@ -38,17 +41,22 @@ export class UsersService {
 
   findAll(role?: 'INTERN' | 'ENGINEER' | 'ADMIN') {
     if (role) {
-      return this.users.filter((user) => user.role === role);
+      const rolesArray = this.users.filter((user) => user.role === role);
+      if(rolesArray.length === 0) { // validaton for query role
+        throw new NotFoundException('User Role Not Found')
+        return rolesArray
+      }
     }
     return this.users; // if no role was passed
   }
 
   findOne(id: number) {
     const user = this.users.find(user => user.id === id)
+    if(!user) throw new NotFoundException('User Not Found')
     return user;
   }
 
-  create(user: {name: string, email: string, role: 'INTERN' | 'ENGINEER' | 'ADMIN' }) {
+  create(user: CreateUserDto) {
     const usersByHighestId = [...this.users].sort((a, b) => b.id - a.id) //finding highest id for newUser
     const newUser = {
       id: usersByHighestId[0].id + 1,
@@ -58,8 +66,8 @@ export class UsersService {
     return newUser;
   }
 
-  update(id: number, updateUser: {name?: string, email?: string, role?: 'INTERN' | 'ENGINEER' | 'ADMIN' } ) {
-    this.users = this.users.map(user => { //knp this.users 2?
+  update(id: number, updateUser: UpdateUserDto ) {
+    this.users = this.users.map(user => { //knp this.users 2? in order tooriginal array is not mutated,
       if(user.id === id) {
         return {...user, ...updateUser}
       } 
@@ -67,6 +75,8 @@ export class UsersService {
     })
     return this.findOne(id); // after we've updated we only want to return the updated user
   }
+
+
 
   delete(id: number) {
     const removedUser = this.findOne(id);

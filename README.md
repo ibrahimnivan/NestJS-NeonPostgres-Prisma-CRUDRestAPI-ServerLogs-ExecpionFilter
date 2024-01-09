@@ -11,3 +11,8 @@ branch :
 
 # things learned
 1. '+' is unary id to convert something into number
+
+## dependency
+1. `npm i class-validator class-transformer` for nestjs validation
+
+15.25
