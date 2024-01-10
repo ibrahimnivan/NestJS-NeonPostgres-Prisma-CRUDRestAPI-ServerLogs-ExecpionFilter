@@ -1,31 +1,31 @@
 1. NESTJS VS EXPRESSJS
 1. 1. Nest using MVC pattern, Express dont (express very unopinionated)
 
-1. NESTJS IS BULT ON TOP OF EXPRESS
+2. NESTJS IS BULT ON TOP OF EXPRESS
    -- and provides a set of abstractions and additional features to make it easier to develop scalable and maintainable server-side applications using TypeScript.
 
-1. GETTING STARTED
-1. 1. `npm i -g @nestjs/cli` (globally install nestjs commandline interface)
+3. GETTING STARTED
+3. 1. `npm i -g @nestjs/cli` (globally install nestjs commandline interface)
 
-1. 2. `nest new <project name>` (to create new project)
+3. 2. `nest new <project name>` (to create new project)
 
-1. SCRIPT FOR DEVELOPMET STAGE => `"npm run start:dev"`
+4. SCRIPT FOR DEVELOPMET STAGE => `"npm run start:dev"`
 
-1. SIGN THE BOILERPLATE APP IS RUNNING
+5. SIGN THE BOILERPLATE APP IS RUNNING
    -- run request for http://localhost:3000 (method : get)
    -- response = Hello, World!
 
-1. CREATE OUR OWN MODULE (named users)
+6. CREATE OUR OWN MODULE (named users)
    -- Using nestjs cli : `nest g module <module_name>`
    -- result : new folder in src directi with `<module_name>`
    -- import in app.module.ts automatically filled (`imports: [<module_name>Module],`)
 
-1. 1. CREATE CONTROLLER FOR MODULE users
+6. 1. CREATE CONTROLLER FOR MODULE users
       -- cli command : `nest g controller <controller_name>`
       -- result : controller file and it's controller testing
       -- import in users.module.ts automatically filled (`import { <controller_name>Controller }`)
 
-1. 2. CREATE OUR OWN PROVIDER FOR MODULE users
+6. 2. CREATE OUR OWN PROVIDER FOR MODULE users
       -- cli command : `nest g service <provider_name>`
       -- result : 2 more files users.service.ts and users.service.spec.ts(for test)
       -- import in users.module.ts automatically filled (`import { <provider_name>Service }`)
@@ -212,7 +212,7 @@ delete(@Param('id') id: string) {
 }
 ```
 
-10. DATA TRANSFER OBJECT SCHEMA (DTO) or input validation types 
+10. DATA TRANSFER OBJECT SCHEMA (DTO) a.k.a input validation types 
 -- Definition : A DTO is an object that defines how the data will be sent over the network. 
 -- Create DTO using classes : We could determine the DTO schema by using TypeScript `interfaces`, or by simple `classes`. Interestingly, __we recommend using classes__ here. Why? Classes are part of the JavaScript ES6 standard, and therefore they are preserved as real entities in the compiled JavaScript. On the other hand, since TypeScript interfaces are removed during the transpilation, Nest can't refer to them at runtime. 
 
@@ -351,6 +351,216 @@ import { `NotFoundException` } from '@nestjs/common';
     }
     return this.users; // if no role was passed
   }
+
+  --------------------------05RestAPI-PrismaORM-NeonPostgre---------------------------------
+
+  14. NEON - (serverless postgres)
+
+  14. 1. SIGNUP TO NEON - (Using Github account)
+
+  14. 2. CHOOSE CONNECTION STRING - (I choose Prisma) 
+  -- Copy Prisma Schema and .env
+```prisma
+    // prisma/schema.prisma
+    datasource db {
+      provider  = "postgresql"
+      url  	    = env("DATABASE_URL")
+      directUrl = env("DIRECT_URL")
+    }
+    // env
+    DATABASE_URL="postgresql://ibrahimnivan:hJzQs0gjLr2K@ep-soft-firefly-04940416-pooler.ap-southeast-1.aws.neon.tech/davegray-nestjs?sslmode=require&pgbouncer=true"
+    DIRECT_URL="postgresql://ibrahimnivan:hJzQs0gjLr2K@ep-soft-firefly-04940416.ap-southeast-1.aws.neon.tech/davegray-nestjs?sslmode=require"
+```
+
+15. PRISMA PREPARATION
+15. 1. `npm i prisma -D` 
+
+15. 2. `npx prisma init` - (create schema folder and .env file)
+
+15. 3.  REPLACE prisma schema and .env from boilerplate with Neon
+
+15. 4. CREATE PRISMA MODEL THEN `npx prisma migrate dev --name init` (create a table and its structure for actual db)
+```prisma
+  model Empoyee {
+    id Int @id @default(autoincrement())
+    name String @unique 
+    email String @unique
+    role  Role 
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+  }
+
+  // define Enum
+  enum Role {
+    INTERN
+    ENGINEER
+    ADMIN
+  }
+```
+
+GOOD TO KNOW : Option of prisma migration
+`npx prisma migrate deploy`: Applies pending migrations to the database, updating its structure based on the changes defined in migration files.
+
+`npx prisma migrate push`: Generates a new migration file based on changes in the Prisma schema, preparing it for deployment to the database.
+
+`npx prisma migrate dev`: Combines migration file generation (push) and deployment (deploy) in one step, streamlining the process during development.
+
+15. 5. AFTER MIGTATION : folder migration and added  packages
+-- Folder migration : there's sql file and its sql instruction based on our model
+-- added packages : added __@prisma/client__  : generated tailored client API based on our Model
+
+15. 6.  IF WE CHANGED OUR MODEL STRUCTURE THEN 
+1. `npx prisma generate`
+2. run another migrate with descriptive name `npx prisma migrate dev --name name_changed`
+3. another migration.sql file is generated
+
+16. CREATE DATABASE MODULE AND SERVICE
+`nest g module database` & `nest g service database`
+
+16. 1. add export in database.module.ts
+@Module({
+  providers: [DatabaseService],
+  `exports: [DatabaseService]`
+})
+
+++++++++++++++++++
+GOOD TO KNOW : @Global() (Global module)
+purpose : makeing our module availabel everywhere (it's no always the best designt choice to make it global) 
+
+```js
+@Global()
+@Module({
+  controllers: [CatsController],
+  providers: [CatsService],
+  exports: [CatsService],
+})
+```
+++++++++++++++++++
+
+16. 2. in database.service.ts (configure PrismaClient and OnModuleInit)
+```js
+//  PrismaClient allows you to perform database operations like querying and updating data.
+// onModuleInit method is used to establish a connection to the database using the PrismaClient
+@Injectable()
+export class DatabaseService extends PrismaClient implements OnModuleInit {
+  async onModuleInit() {
+      await this.$connect() // await connection to prisma
+  }
+}
+
+```
+
+17. CREATE MODULE employees WITH CRUD REST API 
+- `nest g resource <employee>` ( is a shorthand that __generates a module, controller, and service all at once, configured for a RESTful resource.__ )
+-  Choose Transport layer (RestAPI)
+-  y for CRUD entry point
+RESULT : employee folder on scr, and inside empoyee folder we __delete__ dto and entities folder bcs we want to use Prisma model
+
+17. 1. INSIDE employees.module.ts (Add DatabaseModule)
+
+`import { DatabaseModule } from 'src/database/database.module';`
+
+@Module({
+  `imports: [DatabaseModule],`
+  controllers: [EmployeesController],
+  providers: [EmployeesService],
+})
+export class EmployeesModule {}
+
+17. 2. CHANGE DTO INTO PRISMA MODUL and add Query('role') to findAll() IN employees.controller.ts 
+
+`import { Prisma } from '@prisma/client';`
+
+  @Get()
+  findAll(`@Query('role') role?: 'INTERN' | 'ENGINEER' | 'ADMIN'`) {
+    return this.employeesService.findAll(`role`);
+  }
+
+  @Post()
+  create(@Body() createEmployeeDto: `Prisma.EmployeeCreateInput`) { //EmployeeCreateInput create based on prisma modul after migration
+    return this.employeesService.create(createEmployeeDto);
+  }
+
+    @Patch(':id')
+  update(@Param('id') id: string, @Body() updateEmployeeDto: `Prisma.EmployeeUpdateInput`) {
+    return this.employeesService.update(+id, updateEmployeeDto);
+  }
+
+17. 3. INSIDE employees.service.ts WHAT WE DO? 
+- CHANGE DTO
+- ADD ASYNC
+- INJECT databaseService DEPENDENCY,
+- ADD PRISMA METHOD TO RETURN
+- ADD QUERY 'ROLE'
+
+```js
+import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { DatabaseService } from 'src/database/database.service';
+
+@Injectable()
+export class EmployeesService {
+
+  constructor(private readonly databaseService: DatabaseService) {} // Inject
+
+  async create(createEmployeeDto: Prisma.EmployeeCreateInput) { // should async if we use DB
+    return this.databaseService.employee.create({ // create() is Prisma method
+      data: createEmployeeDto
+    })
+  }
+
+  async findAll(role?: 'INTERN' | 'ENGINEER' | 'ADMIN') {
+    if(role) return this.databaseService.employee.findMany({
+      where: {
+        role,
+      }
+    })
+    return this.databaseService.employee.findMany(); // findMany() from Prisma
+  }
+
+  async findOne(id: number) {
+    return this.databaseService.employee.findUnique({ // findUnique() is Prisma method
+      where: {
+        id
+      }
+    });
+  }
+
+  async update(id: number, updateEmployeeDto: Prisma.EmployeeUpdateInput) {
+    return this.databaseService.employee.update({ // updata() from Prisma
+      where: {
+        id,
+      },
+      data: updateEmployeeDto
+    });
+  }
+
+  async remove(id: number) {
+    return this.databaseService.employee.delete({ // delete() from Prisma
+      where: {
+        id,
+      }
+    });
+  }
+}
+
+```
+
+17. 4. `npm run start:dev` WE'LL TEST OUR CRUD REST API
+--  RESULT : CRUD rest api with Neon-Prisma is working
+
+
+
+  
+
+
+
+
+
+
+
+
+
 
 
 
