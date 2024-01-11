@@ -419,7 +419,7 @@ GOOD TO KNOW : Option of prisma migration
 
 16. 1. add export in database.module.ts
 @Module({
-  providers: [DatabaseService],
+  providers: DatabaseService,
   `exports: [DatabaseService]`
 })
 
@@ -547,7 +547,374 @@ export class EmployeesService {
 ```
 
 17. 4. `npm run start:dev` WE'LL TEST OUR CRUD REST API
+
 --  RESULT : CRUD rest api with Neon-Prisma is working
+
+------------------------ 06 CORS, RATE LIMITS,  SERVER LOGS, & EXEPTIONSm ------------------
+
+18. GLOBAL PREFIX (We want to attach `api` for route)
+
+-- To set a prefix for every route registered in an HTTP application => localhost/api/employees/3
+-- in main.ts
+  import { NestFactory } from '@nestjs/core';
+  import { AppModule } from './app.module';
+
+  async function bootstrap() {
+    const app = await NestFactory.create(AppModule);
+    `app.setGlobalPrefix('api')`
+    await app.listen(3000);
+  }
+  bootstrap();
+
+19. CORS (Cross-origin resource sharing)
+
+--  is a mechanism that allows resources to be requested from another domain
+-- it's important so people that are not in our domain at another origin can actually request some data from our API
+-- we can keep a lit of allowed origin and only let those domain access what we have at our domain
+
+```js
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.enableCors() // to apply CROS (opened in everywhere)
+  app.setGlobalPrefix('api')
+  await app.listen(3000);
+}
+bootstrap();
+```
+
+19. 1. OPTIONAL CONFIGURATION OBJECT ARGUMENT (we don't use it) TO SPECIFY ALLOWED ORIGIN 
+- IS SAME LIKE INI NODEJS AND EXPRESS
+
+```js
+//// IN corsOptions.js
+const allowedOrigins = require('./allowedOrigins');
+
+const corsOptions = {
+    origin: (origin, callback) => {
+        if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+            callback(null, true)
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    optionsSuccessStatus: 200
+}
+
+module.exports = corsOptions;
+
+
+//// IN allowedOrigin.js
+const allowedOrigins = [
+    'https://www.yoursite.com',
+    'http://127.0.0.1:5500',
+    'http://localhost:3500',
+    'http://localhost:3000'
+];
+
+module.exports = allowedOrigins;
+```
+
+20. RATE LIMITING
+
+- INSTALL : ` npm i --save @nestjs/throttler`
+
+20. 1. INSIDE  app.module.ts TO CONFIGURE RATE LIMITING
+`
+`import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';`
+`import { APP_GUARD } from '@nestjs/core';`
+
+@Module({
+  imports: [
+    UsersModule,
+    DatabaseModule,
+    EmployeesModule,
+```js
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,  // time to live (mili seconds)
+        limit: 3,
+      },
+    ]),
+```
+  ],
+  controllers: AppController,
+```js
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
+```
+})
+export class AppModule {}
+
+20. 2. WE CREATE TWO OBJECT (short & long)
+```js
+ThrottlerModule.forRoot([
+      {
+        name: 'short',
+        ttl: 60000, // time to live (1 minute)
+        limit: 3, // 3 time for every minute
+      },
+      {
+        name: 'long',
+        ttl: 30000,
+        limit: 5
+      }
+    ]),
+```
+
+20. 3. INSIDE employees.controller.ts WE OVERRIDE AND SKIP RATE LIMIT
+
+`@SkipThrottle({short: true}) // To skip rate limit named 'short' to all method`
+@Controller('employees')
+export class EmployeesController {
+  constructor(private readonly employeesService: EmployeesService) {}
+
+  @Post()
+  create(@Body() createEmployeeDto: Prisma.EmployeeCreateInput) {
+    //EmployeeCreateInput create based on prisma modul after migration
+    return this.employeesService.create(createEmployeeDto);
+  }
+
+  `@SkipThrottle({ short: false }) // we don't skip rate limit`
+  @Get()
+  findAll(@Query('role') role?: 'INTERN' | 'ENGINEER' | 'ADMIN') {
+    return this.employeesService.findAll(role);
+  }
+
+  `@Throttle({ short: { ttl: 60000, limit: 1 } }) // override 'short'rate limit`
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.employeesService.findOne(+id);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body() updateEmployeeDto: Prisma.EmployeeUpdateInput,
+  ) {
+    return this.employeesService.update(+id, updateEmployeeDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.employeesService.remove(+id);
+  }
+}
+
++++++++++++
+
+GOOD TO KNOW :
+if rate limit doesn't have name use : default
+@SkipThrottle({ `default`: false }) 
+@Throttle({ `default:` { ttl: 60000, limit: 1 } }) 
+
++++++++++++
+
+21. LOGGER 
+
+-- many deployed application make use of `winston`
+-- but we're gonna use logger built in nestjs
+
+21. 1. NESTJS LOGGER
+
+```js
+const app = await NestFactory.create(AppModule, {
+  logger: ['error', 'warn'], // level of logger = 'log', 'fatal', 'error', 'warn', 'debug', and 'verbose'
+});
+await app.listen(3000);
+```
+
+21. 2. CUSTOM IMPLEMENTATION TO OVERRIDE COMMON LOGGER SERVICE (we dont do this, default is fine)
+
+22. 3. EXTENDS BUILT IN LOGGER (more preferred)
+
+22. 4. WE CREATE NEW MODULE AND PROVIDER NAMED my-logger
+
+`nest g module my-logger & nest g service my-logger` 
+
+22. 5. INSIDE my-logger.service.ts
+- we extends nestjs built in logger
+- we formatted it and write it to file
+
+
+```js
+import { Injectable, ConsoleLogger } from '@nestjs/common';
+import * as fs from 'fs';
+import { promises as fsPromises } from 'fs'
+import * as path from 'path'
+
+@Injectable()
+export class MyLoggerService extends ConsoleLogger { // extends nestjs built in logger
+
+  // function for formating entry logs and write it to file
+  async logTofile(entry: any) { 
+    const formattedEntry = `${Intl.DateTimeFormat('en-US', { // Intl is (s internationalization support)
+      dateStyle: 'short',
+      timeStyle: 'short',
+      timeZone: 'America/Chicago'
+    }).format(new Date())}\t${entry}\n`
+
+    try {
+      // if directory logs doesn't exist we create it
+      if (!fs.existsSync(path.join(__dirname, "..", "..", "logs"))) { 
+        await fsPromises.mkdir(path.join(__dirname, '..', '..', 'logs'))
+      }
+
+       // if directory is exist it just append to the file
+      await fsPromises.appendFile(path.join(__dirname, '..', '..', 'logs', 'myLogFile.log'), formattedEntry)
+    } catch(e) {
+      if (e instanceof Error) console.error(e.message)
+    }
+  }
+
+  // for log level
+  log(message: any, context?: string) { 
+    const entry = `${context}\t${message}`  // \t = tab
+    this.logTofile(entry)
+
+    super.log(message, context) 
+  }
+
+  // for error level
+  error(message: any, stackOrContext?: string) { 
+    const entry = `${stackOrContext}\t${message}`
+    this.logTofile(entry)
+
+    super.error(message, stackOrContext) 
+  }
+}
+
+```
+
+22. 6. INSIDE my-logger.module.ts WE ADD EXPORTS
+
+import { Module } from '@nestjs/common';
+import { MyLoggerService } from './my-logger.service';
+
+@Module({
+  providers: MyLoggerService,
+  `exports: [MyLoggerService]`
+})
+export class MyLoggerModule {}
+
+
+22. 7. APPLIED OUT EXTENDED BUILT IN LOG GLOBALLY IN main.ts (we dont choose this)
+
+async function bootstrap() {
+```js
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true, 
+  });
+```
+  `app.useLogger(app.get(MyLoggerService))`
+  app.enableCors()
+  app.setGlobalPrefix('api')
+  await app.listen(3000);
+}
+bootstrap();
+
+22. 8. APPLIED ONLY TO employees (what we do) INSIDE employees.controller.ts
+
+```js
+   // EmployeesController is context for logger
+  private readonly logger = new MyLoggerService(EmployeesController.name)
+
+  @Get()
+  findAll(@Ip() ip: string, @Query('role') role?: 'INTERN' | 'ENGINEER' | 'ADMIN') { //@Ip to get ip number from user (important to logger)
+    this.logger.log(`Request for ALL Employees\t${ip}`, EmployeesController.name) // we want to get any ip addres of any request
+    return this.employeesService.findAll(role);
+
+```
+
+23. EXCEPTION FILTER
+-- While the base (built-in) exception filter can automatically handle many cases for you, `you may want full control over the exceptions layer`. For example, you may want to add logging or use a different JSON schema based on some dynamic factors. Exception filters are designed for exactly this purpose. `They let you control the exact flow of control and the content of the response sent back to the client`.
+
+23. all-exception.filter.ts IN SRC
+
+```js
+import { Catch, ArgumentsHost, HttpStatus, HttpException } from "@nestjs/common";
+import { BaseExceptionFilter } from "@nestjs/core";
+import { Request, Response } from "express";
+import { MyLoggerService } from "./my-logger/my-logger.service";
+import { PrismaClientValidationError } from "@prisma/client/runtime/library";
+
+type MyResponseObj = {
+  statusCode: number,
+  timeStamp: string,
+  path: string,
+  response: string | object
+}
+
+@Catch() // without argument it means it catch everything 
+export class AllExceptionsFilter extends BaseExceptionFilter { 
+
+  // we want to write exceptionn to our log
+  private readonly logger = new MyLoggerService(AllExceptionsFilter.name) 
+
+  catch(exception: unknown, host: ArgumentsHost): void {
+    const ctx = host.switchToHttp();          // ctx = context
+    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
+
+    const myResponseObj: MyResponseObj = {
+      statusCode: 500,
+      timeStamp: new Date().toISOString(),
+      path: request.url,
+      response: '',
+    }
+
+    if(exception instanceof HttpException) {
+      myResponseObj.statusCode = exception.getStatus()
+      myResponseObj.response = exception.getResponse()
+    } else if (exception instanceof PrismaClientValidationError) {
+      myResponseObj.statusCode = 422
+      myResponseObj.response = exception.message.replaceAll(/\n/g, ' ')
+    } else {
+      myResponseObj.statusCode = HttpStatus.INTERNAL_SERVER_ERROR // 500
+      myResponseObj.response = 'Internal Server Error'
+    }
+
+    response
+      .status(myResponseObj.statusCode)
+      .json(myResponseObj)
+    
+    this.logger.error(myResponseObj.response, AllExceptionsFilter.name)
+
+    super.catch(exception, host) // refeerencing catch() from BaseExceptionFilter to extends functionality
+  }
+}
+```
+
+23. INSIDE main.ts FOR APPLIED TO OUR APLICATION
+
+
+23. FORMAT RESPONSE IN THUNDER CLIENT
+```json
+{
+  "statusCode": 429,
+  "timeStamp": "2024-01-11T03:39:08.680Z",
+  "path": "/api/employees",
+  "response": "ThrottlerException: Too Many Requests"
+}
+
+{
+  "statusCode": 422,
+  "timeStamp": "2024-01-11T03:40:56.267Z",
+  "path": "/api/employees?role=GYPSY%20CATCHER",
+  "response": " Invalid `this.databaseService.employee.findMany()` invocation in D:\\5. P\\NestJS\\001\\lesson01\\src\\employees\\employees.service.ts:17:51    14 }   15    16 async findAll(role?: 'INTERN' | 'ENGINEER' | 'ADMIN') { → 17   if(role) return this.databaseService.employee.findMany({          where: {            role: \"GYPSY CATCHER\"                  ~~~~~~~~~~~~~~~          }        })  Invalid value for argument `role`. Expected Role."
+}
+```
+
+
+
+
+
+
+
 
 
 
