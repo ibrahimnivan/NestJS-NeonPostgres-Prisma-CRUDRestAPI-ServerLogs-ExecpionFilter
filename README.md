@@ -5,7 +5,10 @@ PROJECT DOCUMENTATION :
 BRANCH :
 1. 01-introduction
 2. 02-controllers
+3. 03-providers
+4. 04-dto-validatro-errorhandling
 5. 05-neon-prisma
+6. 06-cors-ratelimit-logger-exception
 
 FEATURE :
 - EXTENDED EXCEPTION 
